@@ -17,11 +17,11 @@ rm -rf ~/.local/share/nvim/swap
 rm -rf ~/.local/share/nvim/backup
 
 # --------------------------
-# Install system prerequisites via apt (show all output)
+# Install system prerequisites via apt
 # --------------------------
 echo "Installing prerequisites..."
 sudo apt update
-sudo apt install -y software-properties-common git curl unzip build-essential
+sudo apt install -y software-properties-common git curl unzip build-essential jq
 
 # --------------------------
 # Install latest Neovim via apt
@@ -43,30 +43,11 @@ require("config.lazy")
 EOF
 
 cat > ~/.config/nvim/lua/config/lazy.lua << 'EOF'
-local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-local lazyrepo = "https://github.com/folke/lazy.nvim.git"
-
--- If lazy.nvim exists, update it; otherwise, clone fresh
-if vim.fn.isdirectory(lazypath) == 1 then
-  print("Updating existing lazy.nvim...")
-  local out = vim.fn.system({ "git", "-C", lazypath, "pull" })
-  if vim.v.shell_error ~= 0 then
-    vim.api.nvim_echo({ { "Failed to update lazy.nvim:\n", "ErrorMsg" }, { out, "WarningMsg" } }, true, {})
-    os.exit(1)
-  end
-else
-  print("Cloning lazy.nvim...")
-  local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
-  if vim.v.shell_error ~= 0 then
-    vim.api.nvim_echo({ { "Failed to clone lazy.nvim:\n", "ErrorMsg" }, { out, "WarningMsg" } }, true, {})
-    os.exit(1)
-  end
-end
-
-vim.opt.rtp:prepend(lazypath)
-
 vim.g.mapleader = " "
 vim.g.maplocalleader = "\\"
+
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
   spec = { { import = "plugins" } },
@@ -100,12 +81,34 @@ return {
 EOF
 
 # --------------------------
-# Install plugins normally
+# Install or update Lazy.nvim dynamically
+# --------------------------
+echo "Installing or updating Lazy.nvim to the latest release..."
+LAZY_PATH="$HOME/.local/share/nvim/lazy/lazy.nvim"
+REPO="https://github.com/folke/lazy.nvim.git"
+
+# Fetch latest release tag from GitHub API
+latest_tag=$(curl -s https://api.github.com/repos/folke/lazy.nvim/releases/latest | jq -r .tag_name)
+echo "Latest Lazy.nvim release: $latest_tag"
+
+if [ -d "$LAZY_PATH" ]; then
+    echo "Updating existing Lazy.nvim..."
+    git -C "$LAZY_PATH" fetch --tags
+    git -C "$LAZY_PATH" checkout "$latest_tag"
+    git -C "$LAZY_PATH" pull --ff-only
+else
+    echo "Cloning Lazy.nvim at latest release..."
+    git clone "$REPO" "$LAZY_PATH"
+    git -C "$LAZY_PATH" checkout "$latest_tag"
+fi
+
+# --------------------------
+# Install plugins
 # --------------------------
 echo "Installing LazyVim plugins..."
 if ! nvim --headless +Lazy! +TSUpdateSync +qall; then
-  echo "❌ Error occurred during plugin installation"
-  exit 1
+    echo "❌ Error occurred during plugin installation"
+    exit 1
 fi
 
 echo "✅ LazyVim installation complete!"

@@ -21,16 +21,16 @@ rm -rf ~/.local/share/nvim/backup
 # Install system prerequisites
 # --------------------------
 echo "Installing prerequisites..."
-sudo apt update -qq
-sudo apt install -y software-properties-common git curl unzip build-essential > /dev/null
+sudo apt-get update -qq
+sudo apt-get install -y software-properties-common git curl unzip build-essential > /dev/null
 
 # --------------------------
 # Install latest Neovim
 # --------------------------
 echo "Installing Neovim..."
 sudo add-apt-repository -y ppa:neovim-ppa/unstable > /dev/null
-sudo apt update -qq
-sudo apt install -y neovim luajit luarocks > /dev/null
+sudo apt-get update -qq
+sudo apt-get install -y neovim luajit luarocks > /dev/null
 
 # --------------------------
 # Setup Neovim configuration
@@ -65,18 +65,15 @@ if vim.v.shell_error ~= 0 then
 end
 vim.opt.rtp:prepend(lazypath)
 
--- Set leader keys
 vim.g.mapleader = " "
 vim.g.maplocalleader = "\\"
 
--- Setup lazy.nvim
 require("lazy").setup({
   spec = { { import = "plugins" } },
   install = { colorscheme = { "habamax" } },
   checker = { enabled = true, notify = true },
 })
 
--- Leader key shortcuts
 vim.keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>', { noremap = true, silent = true })
 vim.keymap.set('n', '<leader>f', ':Telescope find_files<CR>', { noremap = true, silent = true })
 vim.keymap.set('n', '<leader>g', ':Telescope live_grep<CR>', { noremap = true, silent = true })
@@ -103,27 +100,13 @@ return {
 EOF
 
 # --------------------------
-# Install plugins with progress bar & error reporting
+# Install plugins normally
 # --------------------------
-echo -n "Installing LazyVim plugins: ["
-
-# Run plugin installation in background and capture errors
-{
-  nvim --headless +Lazy! +TSUpdateSync +qall 2> /tmp/nvim_install_errors.log &
-  pid=$!
-  
-  # Show simple progress bar while running
-  while kill -0 $pid 2>/dev/null; do
-    echo -n "#"
-    sleep 0.5
-  done
-  wait $pid
-} || {
-  echo "] Failed!"
-  echo "❌ An error occurred during plugin installation:"
-  cat /tmp/nvim_install_errors.log
+echo "Installing LazyVim plugins..."
+# Let Neovim show normal plugin installation output
+if ! nvim --headless +Lazy! +TSUpdateSync +qall; then
+  echo "❌ Error occurred during plugin installation"
   exit 1
-}
+fi
 
-echo "] Done!"
 echo "✅ LazyVim installation complete!"

@@ -5,13 +5,12 @@ set -e
 # Ask for sudo password once
 # --------------------------
 sudo -v
-# Keep-alive: update sudo timestamp until script finishes
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
 # --------------------------
 # Clean old Neovim / LazyVim
 # --------------------------
-echo "Cleaning up old Neovim config and LazyVim..."
+echo "Cleaning old Neovim and LazyVim..."
 rm -rf ~/.config/nvim
 rm -rf ~/.local/share/nvim/lazy
 rm -rf ~/.local/share/nvim/site
@@ -22,22 +21,16 @@ rm -rf ~/.local/share/nvim/backup
 # Install system prerequisites
 # --------------------------
 echo "Installing prerequisites..."
-sudo apt update
-sudo apt install -y software-properties-common git curl unzip build-essential
+sudo apt update -qq
+sudo apt install -y software-properties-common git curl unzip build-essential > /dev/null
 
 # --------------------------
 # Install latest Neovim
 # --------------------------
-echo "Adding Neovim unstable PPA..."
-sudo add-apt-repository -y ppa:neovim-ppa/unstable
-sudo apt update
-sudo apt install -y neovim
-
-# --------------------------
-# Install LuaJIT and LuaRocks
-# --------------------------
-echo "Installing LuaJIT and LuaRocks..."
-sudo apt install -y luajit luarocks
+echo "Installing Neovim..."
+sudo add-apt-repository -y ppa:neovim-ppa/unstable > /dev/null
+sudo apt update -qq
+sudo apt install -y neovim luajit luarocks > /dev/null
 
 # --------------------------
 # Setup Neovim configuration
@@ -46,14 +39,11 @@ echo "Setting up Neovim config..."
 mkdir -p ~/.config/nvim/lua/config
 mkdir -p ~/.config/nvim/lua/plugins
 
-# init.lua
 cat > ~/.config/nvim/init.lua << 'EOF'
 require("config.lazy")
 EOF
 
-# lua/config/lazy.lua
 cat > ~/.config/nvim/lua/config/lazy.lua << 'EOF'
--- Bootstrap lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 local lazyrepo = "https://github.com/folke/lazy.nvim.git"
 
@@ -62,8 +52,8 @@ if vim.fn.isdirectory(lazypath) == 1 then
   vim.fn.system({ "rm", "-rf", lazypath })
 end
 
--- Clone fresh lazy.nvim
-local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
+-- Clone fresh lazy.nvim quietly
+local out = vim.fn.system({ "git", "clone", "--quiet", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
 if vim.v.shell_error ~= 0 then
   vim.api.nvim_echo({
     { "Failed to clone lazy.nvim:\n", "ErrorMsg" },
@@ -92,7 +82,6 @@ vim.keymap.set('n', '<leader>f', ':Telescope find_files<CR>', { noremap = true, 
 vim.keymap.set('n', '<leader>g', ':Telescope live_grep<CR>', { noremap = true, silent = true })
 EOF
 
-# lua/plugins/init.lua
 cat > ~/.config/nvim/lua/plugins/init.lua << 'EOF'
 return {
   { "nvim-treesitter/nvim-treesitter", run = ":TSUpdate" },
@@ -114,9 +103,27 @@ return {
 EOF
 
 # --------------------------
-# Install plugins and Tree-sitter parsers
+# Install plugins with progress bar & error reporting
 # --------------------------
-echo "Installing Neovim plugins and Tree-sitter parsers..."
-nvim --headless +Lazy! +TSUpdateSync +qall
+echo -n "Installing LazyVim plugins: ["
 
-echo "✅ Clean LazyVim installation complete! Open Neovim with 'nvim'."
+# Run plugin installation in background and capture errors
+{
+  nvim --headless +Lazy! +TSUpdateSync +qall 2> /tmp/nvim_install_errors.log &
+  pid=$!
+  
+  # Show simple progress bar while running
+  while kill -0 $pid 2>/dev/null; do
+    echo -n "#"
+    sleep 0.5
+  done
+  wait $pid
+} || {
+  echo "] Failed!"
+  echo "❌ An error occurred during plugin installation:"
+  cat /tmp/nvim_install_errors.log
+  exit 1
+}
+
+echo "] Done!"
+echo "✅ LazyVim installation complete!"

@@ -17,7 +17,7 @@ rm -rf ~/.local/share/nvim/swap
 rm -rf ~/.local/share/nvim/backup
 
 # --------------------------
-# Install system prerequisites via apt (no quiet)
+# Install system prerequisites via apt (show all output)
 # --------------------------
 echo "Installing prerequisites..."
 sudo apt update
@@ -46,22 +46,23 @@ cat > ~/.config/nvim/lua/config/lazy.lua << 'EOF'
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 local lazyrepo = "https://github.com/folke/lazy.nvim.git"
 
--- Remove old lazy.nvim if exists
+-- If lazy.nvim exists, update it; otherwise, clone fresh
 if vim.fn.isdirectory(lazypath) == 1 then
-  vim.fn.system({ "rm", "-rf", lazypath })
+  print("Updating existing lazy.nvim...")
+  local out = vim.fn.system({ "git", "-C", lazypath, "pull" })
+  if vim.v.shell_error ~= 0 then
+    vim.api.nvim_echo({ { "Failed to update lazy.nvim:\n", "ErrorMsg" }, { out, "WarningMsg" } }, true, {})
+    os.exit(1)
+  end
+else
+  print("Cloning lazy.nvim...")
+  local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
+  if vim.v.shell_error ~= 0 then
+    vim.api.nvim_echo({ { "Failed to clone lazy.nvim:\n", "ErrorMsg" }, { out, "WarningMsg" } }, true, {})
+    os.exit(1)
+  end
 end
 
--- Clone fresh lazy.nvim with normal git output
-local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
-if vim.v.shell_error ~= 0 then
-  vim.api.nvim_echo({
-    { "Failed to clone lazy.nvim:\n", "ErrorMsg" },
-    { out, "WarningMsg" },
-    { "\nPress any key to exit..." },
-  }, true, {})
-  vim.fn.getchar()
-  os.exit(1)
-end
 vim.opt.rtp:prepend(lazypath)
 
 vim.g.mapleader = " "
@@ -99,7 +100,7 @@ return {
 EOF
 
 # --------------------------
-# Install plugins normally (no progress bar, normal output)
+# Install plugins normally
 # --------------------------
 echo "Installing LazyVim plugins..."
 if ! nvim --headless +Lazy! +TSUpdateSync +qall; then

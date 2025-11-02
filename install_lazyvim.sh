@@ -58,11 +58,11 @@ local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 local lazyrepo = "https://github.com/folke/lazy.nvim.git"
 
 -- Remove old lazy.nvim if exists
-if (vim.uv or vim.loop).fs_stat(lazypath) then
+if vim.fn.isdirectory(lazypath) == 1 then
   vim.fn.system({ "rm", "-rf", lazypath })
 end
 
--- Clone fresh
+-- Clone fresh lazy.nvim
 local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
 if vim.v.shell_error ~= 0 then
   vim.api.nvim_echo({

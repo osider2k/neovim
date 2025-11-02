@@ -5,7 +5,6 @@ set -e
 # Ask for sudo password once
 # --------------------------
 sudo -v
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
 # --------------------------
 # Clean old Neovim / LazyVim
@@ -18,19 +17,19 @@ rm -rf ~/.local/share/nvim/swap
 rm -rf ~/.local/share/nvim/backup
 
 # --------------------------
-# Install system prerequisites
+# Install system prerequisites via apt (no quiet)
 # --------------------------
 echo "Installing prerequisites..."
-sudo apt-get update -qq
-sudo apt-get install -y software-properties-common git curl unzip build-essential > /dev/null
+sudo apt update
+sudo apt install -y software-properties-common git curl unzip build-essential
 
 # --------------------------
-# Install latest Neovim
+# Install latest Neovim via apt
 # --------------------------
 echo "Installing Neovim..."
-sudo add-apt-repository -y ppa:neovim-ppa/unstable > /dev/null
-sudo apt-get update -qq
-sudo apt-get install -y neovim luajit luarocks > /dev/null
+sudo add-apt-repository -y ppa:neovim-ppa/unstable
+sudo apt update
+sudo apt install -y neovim luajit luarocks
 
 # --------------------------
 # Setup Neovim configuration
@@ -52,8 +51,8 @@ if vim.fn.isdirectory(lazypath) == 1 then
   vim.fn.system({ "rm", "-rf", lazypath })
 end
 
--- Clone fresh lazy.nvim quietly
-local out = vim.fn.system({ "git", "clone", "--quiet", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
+-- Clone fresh lazy.nvim with normal git output
+local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
 if vim.v.shell_error ~= 0 then
   vim.api.nvim_echo({
     { "Failed to clone lazy.nvim:\n", "ErrorMsg" },
@@ -100,10 +99,9 @@ return {
 EOF
 
 # --------------------------
-# Install plugins normally
+# Install plugins normally (no progress bar, normal output)
 # --------------------------
 echo "Installing LazyVim plugins..."
-# Let Neovim show normal plugin installation output
 if ! nvim --headless +Lazy! +TSUpdateSync +qall; then
   echo "❌ Error occurred during plugin installation"
   exit 1
